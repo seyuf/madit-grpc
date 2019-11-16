@@ -597,6 +597,10 @@ public class RepeatingRecognitionSession implements SampleProcessorInterface {
     endSessionRequestTime = Optional.absent();
   }
 
+  public Spanned getLatestTextToSave(){
+    return resultFormatter.getMostRecentTranscriptSegment();
+  }
+
   private void sendTranscriptResultUpdated(TranscriptionResultUpdatePublisher.UpdateType type) {
     final Spanned transcript = resultFormatter.getFormattedTranscript();
     final Spanned segment = resultFormatter.getMostRecentTranscriptSegment();
