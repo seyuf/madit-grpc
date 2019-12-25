@@ -6,15 +6,6 @@ import android.support.v4.util.Pair;
 
 import com.google.android.gms.tasks.Task;
 import com.google.android.gms.tasks.Tasks;
-import com.google.api.services.docs.v1.Docs;
-import com.google.api.services.docs.v1.model.BatchUpdateDocumentRequest;
-import com.google.api.services.docs.v1.model.BatchUpdateDocumentResponse;
-import com.google.api.services.docs.v1.model.Document;
-import com.google.api.services.docs.v1.model.EndOfSegmentLocation;
-import com.google.api.services.docs.v1.model.InsertTextRequest;
-import com.google.api.services.docs.v1.model.Request;
-import com.google.api.services.drive.Drive;
-import com.google.api.services.drive.model.File;
 
 import net.gjerull.etherpad.client.EPLiteClient;
 

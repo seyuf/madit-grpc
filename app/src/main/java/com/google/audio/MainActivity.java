@@ -1,18 +1,4 @@
-/*
- * Copyright 2019 Google LLC
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+
 package com.google.audio;
 
 import static com.google.audio.asr.SpeechRecognitionModelOptions.SpecificModel.DICTATION_DEFAULT;
@@ -20,9 +6,7 @@ import static com.google.audio.asr.SpeechRecognitionModelOptions.SpecificModel.V
 import static com.google.audio.asr.TranscriptionResultFormatterOptions.TranscriptColoringStyle.NO_COLORING;
 
 import android.Manifest;
-import android.app.Activity;
 import android.content.Context;
-import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.media.AudioFormat;
@@ -30,7 +14,6 @@ import android.media.AudioRecord;
 import android.media.MediaRecorder;
 import android.os.Build;
 import android.os.Bundle;
-import android.os.Environment;
 import android.preference.PreferenceManager;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
@@ -50,16 +33,6 @@ import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import com.google.android.gms.auth.api.signin.GoogleSignIn;
-import com.google.android.gms.auth.api.signin.GoogleSignInClient;
-import com.google.android.gms.auth.api.signin.GoogleSignInOptions;
-import com.google.android.gms.common.api.Scope;
-import com.google.api.client.extensions.android.http.AndroidHttp;
-import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential;
-import com.google.api.client.json.gson.GsonFactory;
-import com.google.api.services.docs.v1.Docs;
-import com.google.api.services.drive.Drive;
-import com.google.api.services.drive.DriveScopes;
 import com.google.audio.asr.CloudSpeechSessionParams;
 import com.google.audio.asr.CloudSpeechStreamObserverParams;
 import com.google.audio.asr.RepeatingRecognitionSession;
@@ -69,21 +42,8 @@ import com.google.audio.asr.TranscriptionResultFormatterOptions;
 import com.google.audio.asr.TranscriptionResultUpdatePublisher;
 import com.google.audio.asr.TranscriptionResultUpdatePublisher.ResultSource;
 import com.google.audio.asr.cloud.CloudSpeechSessionFactory;
-import com.google.audio.service.DocsServiceHelper;
-import com.google.audio.service.DriveServiceHelper;
 import com.google.audio.service.EtherPadServiceHelper;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.OutputStreamWriter;
-import java.util.Collections;
 import java.util.UUID;
 
 public class MainActivity extends AppCompatActivity {
@@ -94,13 +54,7 @@ public class MainActivity extends AppCompatActivity {
 
   private SharedPreferences sharedpreferences;
 
-  private static final int REQUEST_CODE_SIGN_IN = 1;
-  private static final int REQUEST_CODE_OPEN_DOCUMENT = 2;
-
-  private DriveServiceHelper mDriveServiceHelper;
   private EtherPadServiceHelper etherPadServiceHelper;
-  private DocsServiceHelper mDocsServiceHelper;
-  private String mOpenDocumentId;
   private String openPadId;
 
 
@@ -129,85 +83,6 @@ public class MainActivity extends AppCompatActivity {
   private NetworkConnectionChecker networkChecker;
   private TextView transcript;
 
-
-  /**
-   * Starts a sign-in activity using {@link #REQUEST_CODE_SIGN_IN}.
-   */
-  private void requestSignIn() {
-    Log.d(TAG, "Requesting sign-in");
-
-    GoogleSignInOptions signInOptions =
-            new GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-                    .requestEmail()
-                    .requestScopes(new Scope(DriveScopes.DRIVE_FILE))
-                    .build();
-    GoogleSignInClient client = GoogleSignIn.getClient(this, signInOptions);
-
-    // The result of the sign-in Intent is handled in onActivityResult.
-    startActivityForResult(client.getSignInIntent(), REQUEST_CODE_SIGN_IN);
-  }
-
-
-  /**
-   * Handles the {@code result} of a completed sign-in activity initiated from {@link
-   * #requestSignIn()}.
-   */
-  private void handleSignInResult(Intent result) {
-    GoogleSignIn.getSignedInAccountFromIntent(result)
-            .addOnSuccessListener(googleAccount -> {
-              Log.d(TAG, "Signed in as " + googleAccount.getEmail());
-
-              // Use the authenticated account to sign in to the Drive service.
-              GoogleAccountCredential credential =
-                      GoogleAccountCredential.usingOAuth2(
-                              this, Collections.singleton(DriveScopes.DRIVE_FILE));
-              credential.setSelectedAccount(googleAccount.getAccount());
-              Drive googleDriveService =
-                      new Drive.Builder(
-                              AndroidHttp.newCompatibleTransport(),
-                              new GsonFactory(),
-                              credential)
-                              .setApplicationName("Drive API MADIT")
-                              .build();
-              Docs googleDocsService = new Docs.Builder(
-                      AndroidHttp.newCompatibleTransport(),
-                      new GsonFactory(),
-                      credential)
-                      .setApplicationName("Docs API MADIT")
-                      .build();
-
-              // The DriveServiceHelper encapsulates all REST API and SAF functionality.
-              // Its instantiation is required before handling any onClick actions.
-              mDriveServiceHelper = new DriveServiceHelper(googleDriveService);
-              mDocsServiceHelper = new DocsServiceHelper(googleDocsService, googleDriveService);
-
-              // setDocument Id
-              setMainDocumentId();
-              if(mOpenDocumentId != null)
-                Log.d(TAG, "Document ID is: ".concat(mOpenDocumentId));
-            })
-            .addOnFailureListener(exception -> Log.e(TAG, "Unable to sign in.", exception));
-  }
-
-
-  /*
-  @Override
-  public void onActivityResult(int requestCode, int resultCode, Intent resultData) {
-    switch (requestCode) {
-      case REQUEST_CODE_SIGN_IN:
-        if (resultCode == Activity.RESULT_OK && resultData != null) {
-          handleSignInResult(resultData);
-        }
-        break;
-    }
-
-    super.onActivityResult(requestCode, resultCode, resultData);
-  }
-
-   */
-
-
-
   private void writeToPad(String openPadId, String text) {
 
     if (etherPadServiceHelper != null && openPadId != null) {
@@ -217,19 +92,6 @@ public class MainActivity extends AppCompatActivity {
                       Log.e(TAG, "Unable save new content doc via REST.", exception));
     }
     else Log.e(TAG, "Unable to save new content:", new Exception("No connection"));
-
-  }
-
-
-  private void writeToDocument(String mOpenFileId, String fileContent) {
-
-    if (mDocsServiceHelper != null && mOpenDocumentId != null) {
-      Log.d(TAG,"updating document with ID: ".concat(mOpenFileId));
-      mDocsServiceHelper.saveToDocument(mOpenFileId, fileContent)
-              .addOnFailureListener(exception ->
-                      Log.e(TAG, "Unable to document file via REST.", exception));
-    }
-    else Log.e(TAG, "Unable to save document via REST:", new Exception("No connection"));
 
   }
 
@@ -256,32 +118,6 @@ public class MainActivity extends AppCompatActivity {
                         Log.e(TAG, "Couldn't create document.", exception));
       }).addOnFailureListener(exception ->
                       Log.e(TAG, "Couldn't create group.", exception));
-    }
-  }
-
-  private void setMainDocumentId(){
-
-    if (mDriveServiceHelper != null) {
-      Log.d(TAG, "Querying for files.");
-
-      mDriveServiceHelper.queryFiles()
-              .addOnSuccessListener(fileList -> {
-                StringBuilder builder = new StringBuilder();
-                for (com.google.api.services.drive.model.File file : fileList.getFiles()) {
-                  builder.append(file.getName()).append("\n");
-                  if (file.getName().equals("madit_livre")) {
-                    mOpenDocumentId =  file.getId();
-                    return;
-                  }
-                }
-                //file not found create a new document
-                mDocsServiceHelper.createFile("madit_livre")
-                        .addOnSuccessListener(docId -> mOpenDocumentId = docId)
-                        .addOnFailureListener(exception ->
-                                Log.e(TAG, "Couldn't create document.", exception));
-
-              })
-              .addOnFailureListener(exception -> Log.e(TAG, "Unable to query files.", exception));
     }
   }
 
