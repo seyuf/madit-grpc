@@ -4,7 +4,7 @@ apply plugin: 'com.google.protobuf'
 android {
     compileSdkVersion 28
     defaultConfig {
-        applicationId "com.google.audio"
+        applicationId "com.madit.audio"
         minSdkVersion 24
         targetSdkVersion 28
         versionCode 1
