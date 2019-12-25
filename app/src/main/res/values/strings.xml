@@ -1,6 +1,6 @@
 <resources>
   <!-- The application name. -->
-  <string name="app_name">Madit Speech2Text</string>
+  <string name="app_name">Madit</string>
   <!-- Entering API key message. -->
   <string name="api_key_message">Enter API key</string>
   <!-- API key document link. -->

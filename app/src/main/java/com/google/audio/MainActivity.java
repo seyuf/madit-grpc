@@ -23,10 +23,12 @@ import android.Manifest;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.media.AudioFormat;
 import android.media.AudioRecord;
 import android.media.MediaRecorder;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.preference.PreferenceManager;
@@ -69,6 +71,7 @@ import com.google.audio.asr.TranscriptionResultUpdatePublisher.ResultSource;
 import com.google.audio.asr.cloud.CloudSpeechSessionFactory;
 import com.google.audio.service.DocsServiceHelper;
 import com.google.audio.service.DriveServiceHelper;
+import com.google.audio.service.EtherPadServiceHelper;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -81,19 +84,24 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.util.Collections;
+import java.util.UUID;
 
 public class MainActivity extends AppCompatActivity {
 
   /*****************DRIVE***************************/
   private static final String TAG = "MainActivity";
 
+
+  private SharedPreferences sharedpreferences;
+
   private static final int REQUEST_CODE_SIGN_IN = 1;
   private static final int REQUEST_CODE_OPEN_DOCUMENT = 2;
 
   private DriveServiceHelper mDriveServiceHelper;
+  private EtherPadServiceHelper etherPadServiceHelper;
   private DocsServiceHelper mDocsServiceHelper;
-  private String mOpenFileId;
   private String mOpenDocumentId;
+  private String openPadId;
 
 
   /*****************END DRIVE***************************/
@@ -182,6 +190,7 @@ public class MainActivity extends AppCompatActivity {
   }
 
 
+  /*
   @Override
   public void onActivityResult(int requestCode, int resultCode, Intent resultData) {
     switch (requestCode) {
@@ -195,33 +204,21 @@ public class MainActivity extends AppCompatActivity {
     super.onActivityResult(requestCode, resultCode, resultData);
   }
 
+   */
 
-  private void createAndUpdateFile(String filename, String contents){
 
-    if (mDriveServiceHelper != null){
-      //mOpenFileId = "1dd5GRzPXmqdl0dru_039s-BcPlzAGcfjhpysMujQITs";
-      //writeToFile( mOpenFileId, contents);
-      mDriveServiceHelper.createFile(filename)
-              .addOnSuccessListener(fileId -> writeToFile(fileId, contents))
+
+  private void writeToPad(String openPadId, String text) {
+
+    if (etherPadServiceHelper != null && openPadId != null) {
+      Log.d(TAG,"updating document with ID: ".concat(openPadId));
+      etherPadServiceHelper.saveToDocument (text, openPadId)
               .addOnFailureListener(exception ->
-                      Log.e(TAG, "Couldn't create file.", exception));
+                      Log.e(TAG, "Unable save new content doc via REST.", exception));
     }
-  }
-
-  private void writeToFile(String mOpenFileId, String fileContent) {
-
-    if (mDriveServiceHelper != null && mOpenFileId != null) {
-      Log.d(TAG,"updating file with ID: ".concat(mOpenFileId));
-      String fileName = "madit_livre";
-
-      mDriveServiceHelper.saveFile(mOpenFileId, fileName, fileContent)
-              .addOnFailureListener(exception ->
-                      Log.e(TAG, "Unable to save file via REST.", exception));
-    }
-    else Log.e(TAG, "Unable to save file via REST:", new Exception("No connection"));
+    else Log.e(TAG, "Unable to save new content:", new Exception("No connection"));
 
   }
-
 
 
   private void writeToDocument(String mOpenFileId, String fileContent) {
@@ -234,6 +231,32 @@ public class MainActivity extends AppCompatActivity {
     }
     else Log.e(TAG, "Unable to save document via REST:", new Exception("No connection"));
 
+  }
+
+  private void initEtherPad(){
+    etherPadServiceHelper = new EtherPadServiceHelper(
+            "https://pad.madit.fr/",
+            "712b2a175d2f74ff60c4ad7ad1f0d17a7020bb4c59bb52dce9e635d419ce288b",
+            this.sharedpreferences
+            );
+    setMainPadID();
+
+  }
+  private void setMainPadID(){
+
+    if (etherPadServiceHelper != null) {
+      Log.d(TAG, "Querying for files.");
+
+      etherPadServiceHelper.addOrGetGroupIDTask().addOnSuccessListener(groupId ->{
+        String padName = getUniquePsuedoID();
+        etherPadServiceHelper.addOrGetGroupPadID(padName, groupId).addOnSuccessListener(padId -> {
+         openPadId = padId;
+          Log.d(TAG, "Document ID is: ".concat(openPadId));
+        }).addOnFailureListener(exception ->
+                        Log.e(TAG, "Couldn't create document.", exception));
+      }).addOnFailureListener(exception ->
+                      Log.e(TAG, "Couldn't create group.", exception));
+    }
   }
 
   private void setMainDocumentId(){
@@ -268,12 +291,12 @@ public class MainActivity extends AppCompatActivity {
                     () -> {
 
                       transcript.setText(formattedTranscript.toString());
-                      if(mOpenDocumentId != null
+                      if(openPadId != null
                               && (updateType == TranscriptionResultUpdatePublisher
                               .UpdateType.TRANSCRIPT_FINALIZED)){
 
-                        writeToDocument(
-                                mOpenDocumentId,
+                        writeToPad(
+                                openPadId,
                                 recognizer.getLatestTextToSave().toString()
                         );
                       }
@@ -297,6 +320,7 @@ public class MainActivity extends AppCompatActivity {
   protected void onCreate(Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
     setContentView(R.layout.activity_main);
+    sharedpreferences = getPreferences(Context.MODE_PRIVATE);
     transcript = findViewById(R.id.transcript);
     initLanguageLocale();
   }
@@ -305,8 +329,8 @@ public class MainActivity extends AppCompatActivity {
   public void onStart() {
     super.onStart();
 
-    requestSignIn();
-    //if(mDriveServiceHelper != null) {
+    //requestSignIn();
+    initEtherPad();
       if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
               != PackageManager.PERMISSION_GRANTED) {
         ActivityCompat.requestPermissions(
@@ -314,9 +338,6 @@ public class MainActivity extends AppCompatActivity {
       } else {
         showAPIKeyDialog();
       }
-  //  } else {
-  //      requestSignIn();
-  //  }
   }
 
   @Override
@@ -427,7 +448,7 @@ public class MainActivity extends AppCompatActivity {
     linkView.setMovementMethod(LinkMovementMethod.getInstance());
     EditText keyInput = contentLayout.findViewById(R.id.api_key_input);
     keyInput.setInputType(InputType.TYPE_CLASS_TEXT);
-    keyInput.setText("EDITH GRIMBERT");
+    keyInput.setText("FREE VERSION");
 
     TextView selectLanguageView = contentLayout.findViewById(R.id.language_locale_view);
     selectLanguageView.setText(Html.fromHtml(getString(R.string.select_language_message)));
@@ -485,4 +506,41 @@ public class MainActivity extends AppCompatActivity {
             .getDefaultSharedPreferences(context)
             .getString(SHARE_PREF_API_KEY, "AIzaSyAUSLQgpvmWKIxb7AOGS5MjyjkRzsZH3Vs");
   }
+
+
+
+
+  public static String getUniquePsuedoID() {
+    // If all else fails, if the user does have lower than API 9 (lower
+    // than Gingerbread), has reset their device or 'Secure.ANDROID_ID'
+    // returns 'null', then simply the ID returned will be solely based
+    // off their Android device information. This is where the collisions
+    // can happen.
+    // Thanks http://www.pocketmagic.net/?p=1662!
+    // Try not to use DISPLAY, HOST or ID - these items could change.
+    // If there are collisions, there will be overlapping data
+    String m_szDevIDShort = "35" + (Build.BOARD.length() % 10) + (Build.BRAND.length() % 10) + (Build.CPU_ABI.length() % 10) + (Build.DEVICE.length() % 10) + (Build.MANUFACTURER.length() % 10) + (Build.MODEL.length() % 10) + (Build.PRODUCT.length() % 10);
+
+    // Thanks to @Roman SL!
+    // https://stackoverflow.com/a/4789483/950427
+    // Only devices with API >= 9 have android.os.Build.SERIAL
+    // http://developer.android.com/reference/android/os/Build.html#SERIAL
+    // If a user upgrades software or roots their device, there will be a duplicate entry
+    String serial = null;
+    try {
+      serial = android.os.Build.class.getField("SERIAL").get(null).toString();
+
+      // Go ahead and return the serial for api => 9
+      return new UUID(m_szDevIDShort.hashCode(), serial.hashCode()).toString();
+    } catch (Exception exception) {
+      // String needs to be initialized
+      serial = "serial"; // some value
+    }
+
+    // Thanks @Joe!
+    // https://stackoverflow.com/a/2853253/950427
+    // Finally, combine the values we have found by using the UUID class to create a unique identifier
+    return new UUID(m_szDevIDShort.hashCode(), serial.hashCode()).toString();
+  }
+
 }
