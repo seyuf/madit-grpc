@@ -2,9 +2,9 @@
   <!-- The application name. -->
   <string name="app_name">Madit</string>
   <!-- Entering API key message. -->
-  <string name="api_key_message">Enter API key</string>
+  <string name="api_key_message">Configuration</string>
   <!-- API key document link. -->
-  <string name="api_key_doc_link">See &lt;a href="https://www.madit.fr">here&lt;/a> for more details.</string>
+  <string name="api_key_doc_link">Voir &lt;a href="https://www.madit.fr">ici lien&lt;/a> pour plus de détails, du support ou autres.</string>
   <!-- Selecting language message. -->
-  <string name="select_language_message">Select language. See  &lt;a href="https://www.madit.fr">here&lt;/a> for more details.</string>
+  <string name="select_language_message">Choisir la langue.</string>
 </resources>

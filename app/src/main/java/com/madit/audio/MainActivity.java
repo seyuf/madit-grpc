@@ -17,6 +17,7 @@ import android.os.Bundle;
 import android.preference.PreferenceManager;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
+import android.support.v4.text.HtmlCompat;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.text.Html;
@@ -83,6 +84,7 @@ public class MainActivity extends AppCompatActivity {
   private RepeatingRecognitionSession recognizer;
   private NetworkConnectionChecker networkChecker;
   private TextView transcript;
+  private TextView padTextView;
 
   private void writeToPad(String openPadId, String text) {
 
@@ -115,6 +117,11 @@ public class MainActivity extends AppCompatActivity {
         etherPadServiceHelper.addOrGetGroupPadID(padName, groupId).addOnSuccessListener(padId -> {
          openPadId = padId;
           Log.d(TAG, "Document ID is: ".concat(openPadId));
+          String padTextLink = String.format(
+                  "Toutes vos transcriptions sont automatiquement sauvegardées <a href=\"https://pad.madit.fr/p/%s\">ici cliquez</a>."
+                  , padId);
+          padTextView.setText(Html.fromHtml(padTextLink, HtmlCompat.FROM_HTML_MODE_LEGACY));
+          padTextView.setMovementMethod(LinkMovementMethod.getInstance());
         }).addOnFailureListener(exception ->
                         Log.e(TAG, "Couldn't create document.", exception));
       }).addOnFailureListener(exception ->
@@ -159,6 +166,7 @@ public class MainActivity extends AppCompatActivity {
     setContentView(R.layout.activity_main);
     sharedpreferences = getPreferences(Context.MODE_PRIVATE);
     transcript = findViewById(R.id.transcript);
+    padTextView = findViewById(R.id.pad);
     initLanguageLocale();
   }
 
@@ -281,14 +289,21 @@ public class MainActivity extends AppCompatActivity {
             (LinearLayout) getLayoutInflater().inflate(R.layout.api_key_message, null);
 
     TextView linkView = contentLayout.findViewById(R.id.api_key_link_view);
-    linkView.setText(Html.fromHtml(getString(R.string.api_key_doc_link)));
+    linkView.setText(Html.fromHtml(getString(R.string.api_key_doc_link), HtmlCompat.FROM_HTML_MODE_LEGACY));
     linkView.setMovementMethod(LinkMovementMethod.getInstance());
     EditText keyInput = contentLayout.findViewById(R.id.api_key_input);
     keyInput.setInputType(InputType.TYPE_CLASS_TEXT);
     keyInput.setText("FREE VERSION");
+    keyInput.setEnabled(false);
+    keyInput.setClickable(false);
 
     TextView selectLanguageView = contentLayout.findViewById(R.id.language_locale_view);
-    selectLanguageView.setText(Html.fromHtml(getString(R.string.select_language_message)));
+    selectLanguageView.setText(
+            Html.fromHtml(
+                    getString(R.string.select_language_message)
+                    , HtmlCompat.FROM_HTML_MODE_LEGACY
+            )
+    );
     selectLanguageView.setMovementMethod(LinkMovementMethod.getInstance());
     final ArrayAdapter<String> languagesList =
             new ArrayAdapter<String>(
@@ -296,6 +311,8 @@ public class MainActivity extends AppCompatActivity {
                     android.R.layout.simple_spinner_item,
                     getResources().getStringArray(R.array.languages));
     Spinner sp = contentLayout.findViewById(R.id.language_locale_spinner);
+    sp.setEnabled(false);
+    sp.setClickable(false);
     sp.setAdapter(languagesList);
     sp.setOnItemSelectedListener(
             new OnItemSelectedListener() {
@@ -308,6 +325,7 @@ public class MainActivity extends AppCompatActivity {
               public void onNothingSelected(AdapterView<?> parent) {}
             });
     sp.setSelection(currentLanguageCodePosition);
+
 
     AlertDialog.Builder builder = new AlertDialog.Builder(this);
     builder
