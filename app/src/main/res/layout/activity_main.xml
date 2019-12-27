@@ -29,6 +29,12 @@
           android:layout_width="match_parent"
           android:layout_height="match_parent"
           android:textSize="@dimen/text_size"/>
+      <TextView
+          android:id="@+id/shareableUrl"
+          android:layout_width="match_parent"
+          android:layout_height="match_parent"
+          android:text="Partager"
+          android:textSize="@dimen/text_size"/>
 
       <TextView
           android:id="@+id/transcript"

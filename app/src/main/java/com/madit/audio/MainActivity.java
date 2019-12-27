@@ -7,6 +7,7 @@ import static com.madit.audio.asr.TranscriptionResultFormatterOptions.Transcript
 
 import android.Manifest;
 import android.content.Context;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.media.AudioFormat;
@@ -85,6 +86,7 @@ public class MainActivity extends AppCompatActivity {
   private NetworkConnectionChecker networkChecker;
   private TextView transcript;
   private TextView padTextView;
+  private TextView shareableTextView;
 
   private void writeToPad(String openPadId, String text) {
 
@@ -117,11 +119,32 @@ public class MainActivity extends AppCompatActivity {
         etherPadServiceHelper.addOrGetGroupPadID(padName, groupId).addOnSuccessListener(padId -> {
          openPadId = padId;
           Log.d(TAG, "Document ID is: ".concat(openPadId));
+
           String padTextLink = String.format(
-                  "Toutes vos transcriptions sont automatiquement sauvegardées <a href=\"https://pad.madit.fr/p/%s\">ici cliquez</a>."
+                  "Toutes vos transcriptions sont automatiquement sauvegardées <a href=\"https://pad.madit.fr/p/%s\">ici ouvrir</a>."
                   , padId);
           padTextView.setText(Html.fromHtml(padTextLink, HtmlCompat.FROM_HTML_MODE_LEGACY));
           padTextView.setMovementMethod(LinkMovementMethod.getInstance());
+
+          String shareableLink = String.format(
+                  "<a href=\"https://pad.madit.fr/p/%s\">Partager</a>."
+                  , padId);
+          shareableTextView.setText(Html.fromHtml(shareableLink, HtmlCompat.FROM_HTML_MODE_LEGACY));
+          shareableTextView.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+              Intent sharingIntent = new Intent(android.content.Intent.ACTION_SEND);
+              String sharedUrl =  String.format(
+                      "https://pad.madit.fr/p/%s"
+                      , padId);
+              sharingIntent.setType("text/plain");
+              sharingIntent.putExtra(android.content.Intent.EXTRA_SUBJECT, "Lien vers votre document Madit");
+              sharingIntent.putExtra(android.content.Intent.EXTRA_TEXT, sharedUrl);
+              startActivity(Intent.createChooser(sharingIntent, "Partager"));
+            }
+          });
+          //shareableTextView.setMovementMethod(LinkMovementMethod.getInstance());
+
         }).addOnFailureListener(exception ->
                         Log.e(TAG, "Couldn't create document.", exception));
       }).addOnFailureListener(exception ->
@@ -167,6 +190,7 @@ public class MainActivity extends AppCompatActivity {
     sharedpreferences = getPreferences(Context.MODE_PRIVATE);
     transcript = findViewById(R.id.transcript);
     padTextView = findViewById(R.id.pad);
+    shareableTextView = findViewById(R.id.shareableUrl);
     initLanguageLocale();
   }
 
