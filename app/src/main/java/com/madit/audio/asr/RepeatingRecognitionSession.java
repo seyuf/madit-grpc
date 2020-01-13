@@ -18,6 +18,7 @@ package com.madit.audio.asr;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import android.content.SharedPreferences;
 import android.text.Spanned;
 import com.madit.audio.CircularByteBuffer;
 import com.madit.audio.NetworkConnectionChecker;
@@ -91,6 +92,10 @@ import org.joda.time.Instant;
 public class RepeatingRecognitionSession implements SampleProcessorInterface {
   /* ---------------- BEGIN: MEMBERS THAT ARE SHARED ACROSS MULTIPLE THREADS ------------------ */
   private static final FluentLogger logger = FluentLogger.forEnclosingClass();
+
+
+  //custom madit shared attribute//
+  private final SharedPreferences sharedPreferences;
 
   // All threads but the recognition thread may post to this queue, only the recognition thread
   // will read from it.
@@ -194,6 +199,7 @@ public class RepeatingRecognitionSession implements SampleProcessorInterface {
     this.resultFormatter = builder.resultFormatter;
     this.sampleRateHz = builder.sampleRateHz;
     this.sessionFactory = builder.sessionFactory;
+    this.sharedPreferences = builder.sharedPreferences;
     this.modelOptions.set(builder.modelOptions);
     this.networkCheck = builder.networkCheck;
     this.speechDetector = builder.speechDetector;
@@ -291,6 +297,7 @@ public class RepeatingRecognitionSession implements SampleProcessorInterface {
       currentSessionID++;
       logger.atInfo().log(
           "Starting a Session #%d in language `%s`.", currentSessionID, model.getLocale());
+
       currentSession.init(model, chunkSizeSamples, currentSessionID);
     }
 
@@ -380,6 +387,7 @@ public class RepeatingRecognitionSession implements SampleProcessorInterface {
             .setAction(RequestForRecognitionThread.Action.REQUEST_TO_END_SESSION)
             .build());
   }
+
 
   /** Gets the modelOptions, which may include a language change or usage of a different model. */
   // May be called from any thread.
@@ -561,9 +569,20 @@ public class RepeatingRecognitionSession implements SampleProcessorInterface {
 
   protected void processResult(TranscriptionResult result, boolean resultIsFinal) {
     speechDetector.cueEvidenceOfSpeech();
+
     result = addSpeakerIDLabels(result);
     resultFormatter.setCurrentHypothesis(result);
     if (resultIsFinal) {
+
+      /*logger.atInfo().log("Transcript duration in seconds: %s",
+              (result.getEndTimestamp().getSeconds() - result.getStartTimestamp().getSeconds()));*/
+
+      /*update limit rate consumed seconds*/
+      long transcriptDuration = (result.getEndTimestamp().getSeconds() - result.getStartTimestamp().getSeconds());
+      long consumedSeconds = sharedPreferences.getLong("usedSeconds", 0) +transcriptDuration;
+      SharedPreferences.Editor editor = sharedPreferences.edit();
+      editor.putLong("usedSeconds", consumedSeconds);
+      editor.apply();
       resultFormatter.finalizeCurrentHypothesis();
     }
     sendTranscriptResultUpdated(
@@ -670,6 +689,7 @@ public class RepeatingRecognitionSession implements SampleProcessorInterface {
     private int sampleRateHz;
     private SpeechSessionFactory sessionFactory;
     private SpeechRecognitionModelOptions modelOptions;
+    private SharedPreferences sharedPreferences;
     // Optional. Note that if you don't have either a resultFormatter or a callbackRefs there is
     // no way to get output out of the RepeatingRecognitionSession.
     private SafeTranscriptionResultFormatter resultFormatter =
@@ -694,6 +714,11 @@ public class RepeatingRecognitionSession implements SampleProcessorInterface {
 
     public Builder setSampleRateHz(int sampleRateHz) {
       this.sampleRateHz = sampleRateHz;
+      return this;
+    }
+
+    public Builder setAndroidPreferences(SharedPreferences preferences){
+      this.sharedPreferences = preferences;
       return this;
     }
 

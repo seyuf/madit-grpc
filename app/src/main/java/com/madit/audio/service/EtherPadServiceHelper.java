@@ -6,6 +6,7 @@ import android.support.v4.util.Pair;
 
 import com.google.android.gms.tasks.Task;
 import com.google.android.gms.tasks.Tasks;
+import com.google.common.flogger.FluentLogger;
 
 import net.gjerull.etherpad.client.EPLiteClient;
 
@@ -25,12 +26,33 @@ public class EtherPadServiceHelper {
     private final Executor mExecutor = Executors.newSingleThreadExecutor();
     private final EPLiteClient client;
     private final SharedPreferences sharedPreferences;
-
+    private static final FluentLogger logger = FluentLogger.forEnclosingClass();
 
     public EtherPadServiceHelper(String apiEndpoint, String apiKey, SharedPreferences preferences) {
         this.client = new EPLiteClient(apiEndpoint, apiKey);
         this.sharedPreferences = preferences;
+        isApiLimitRateAttained();
+    }
 
+
+    public boolean isApiLimitRateAttained(){
+        //set limitrate 30 min/month
+        int savedMonth = sharedPreferences.getInt("savedMonth", 0);
+        int curMonth = DateTime.now().getMonthOfYear();
+        if(savedMonth != curMonth){
+            sharedPreferences.edit().apply();
+            SharedPreferences.Editor editor = sharedPreferences.edit();
+            editor.putInt("savedMonth", curMonth);
+            editor.putLong("usedSeconds", 0);
+            editor.apply();
+            return false;
+        }
+        else {
+            long usedSeconds = sharedPreferences.getLong("usedSeconds",0);
+            /*logger.atInfo().log(
+                    "Mois %d et secondes d'utilisation: %s",curMonth,usedSeconds); */
+            return usedSeconds >= 1800;
+        }
     }
     /**
      * Creates a text file in the user's My Drive folder and returns its file ID.

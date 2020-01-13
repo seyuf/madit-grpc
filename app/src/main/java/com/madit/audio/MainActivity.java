@@ -23,6 +23,7 @@ import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.text.Html;
 import android.text.InputType;
+import android.text.SpannableString;
 import android.text.method.LinkMovementMethod;
 import android.util.Log;
 import android.view.View;
@@ -90,6 +91,12 @@ public class MainActivity extends AppCompatActivity {
 
   private void writeToPad(String openPadId, String text) {
 
+
+    if(etherPadServiceHelper.isApiLimitRateAttained()){
+      showLimitRateDialog();
+      return;
+    }
+
     if (etherPadServiceHelper != null && openPadId != null) {
       Log.d(TAG,"updating document with ID: ".concat(openPadId));
       etherPadServiceHelper.saveToDocument (text, openPadId)
@@ -101,6 +108,7 @@ public class MainActivity extends AppCompatActivity {
   }
 
   private void initEtherPad(){
+
     etherPadServiceHelper = new EtherPadServiceHelper(
             "https://pad.madit.fr/",
             "712b2a175d2f74ff60c4ad7ad1f0d17a7020bb4c59bb52dce9e635d419ce288b",
@@ -162,10 +170,13 @@ public class MainActivity extends AppCompatActivity {
                               && (updateType == TranscriptionResultUpdatePublisher
                               .UpdateType.TRANSCRIPT_FINALIZED)){
 
+
                         writeToPad(
                                 openPadId,
                                 recognizer.getLatestTextToSave().toString()
                         );
+
+
                       }
                     });
           };
@@ -205,7 +216,12 @@ public class MainActivity extends AppCompatActivity {
         ActivityCompat.requestPermissions(
                 this, new String[]{Manifest.permission.RECORD_AUDIO}, PERMISSIONS_REQUEST_RECORD_AUDIO);
       } else {
-        showAPIKeyDialog();
+
+
+        //if(etherPadServiceHelper.isApiLimitRateAttained())
+         // showLimitRateDialog();
+        //else
+          showAPIKeyDialog();
       }
   }
 
@@ -255,6 +271,7 @@ public class MainActivity extends AppCompatActivity {
   }
 
   private void constructRepeatingRecognitionSession() {
+
     SpeechRecognitionModelOptions options =
             SpeechRecognitionModelOptions.newBuilder()
                     .setLocale(currentLanguageCode)
@@ -286,6 +303,7 @@ public class MainActivity extends AppCompatActivity {
                     .setSpeechSessionFactory(new CloudSpeechSessionFactory(cloudParams, getApiKey(this)))
                     .setSampleRateHz(SAMPLE_RATE)
                     .setTranscriptionResultFormatter(new SafeTranscriptionResultFormatter(formatterOptions))
+                    .setAndroidPreferences(sharedpreferences)
                     .setSpeechRecognitionModelOptions(options)
                     .setNetworkConnectionChecker(networkChecker);
     recognizer = recognizerBuilder.build();
@@ -307,6 +325,47 @@ public class MainActivity extends AppCompatActivity {
     new Thread(readMicData).start();
   }
 
+  private void showPricacyPolicy(){
+
+    SpannableString privacyPolicyText = new SpannableString(
+            Html.fromHtml( getString(R.string.privacy_policy)
+                    , HtmlCompat.FROM_HTML_MODE_LEGACY));
+
+    SpannableString privacyPolicyTextEn = new SpannableString(
+            Html.fromHtml( getString(R.string.privacy_policy_en)
+                    , HtmlCompat.FROM_HTML_MODE_LEGACY));
+    AlertDialog builder = new AlertDialog.Builder(this)
+            .setTitle("Politique de confidentialité / Privacy Policy")
+            .setMessage(privacyPolicyText+ "\n \n" + privacyPolicyTextEn)
+            .setPositiveButton(getString(android.R.string.ok),((dialog, which) -> {
+              constructRepeatingRecognitionSession();
+              startRecording();
+            }))
+            .create();
+    builder.show();
+
+    ((TextView)builder.findViewById(android.R.id.message)).setMovementMethod(LinkMovementMethod.getInstance());
+  }
+  private void showLimitRateDialog(){
+
+    SpannableString limitRateText = new SpannableString(
+            Html.fromHtml( getString(R.string.limit_rate_message)
+                    , HtmlCompat.FROM_HTML_MODE_LEGACY));
+    AlertDialog builder = new AlertDialog.Builder(this)
+            .setTitle("Limite d'utilisation atteinte")
+            .setMessage(limitRateText)
+            .setPositiveButton(getString(android.R.string.ok),
+                    (dialog, which) -> {
+                      android.os.Process.killProcess(android.os.Process.myPid());
+                      System.exit(1);
+
+                    })
+            .create();
+           builder.show();
+
+    ((TextView)builder.findViewById(android.R.id.message)).setMovementMethod(LinkMovementMethod.getInstance());
+
+  }
   /** The API won't work without a valid API key. This prompts the user to enter one. */
   private void showAPIKeyDialog() {
     LinearLayout contentLayout =
@@ -355,6 +414,7 @@ public class MainActivity extends AppCompatActivity {
     builder
             .setTitle(getString(R.string.api_key_message))
             .setView(contentLayout)
+            .setNeutralButton("Politiques de confidentialité", ((dialog, which) -> showPricacyPolicy()))
             .setPositiveButton(
                     getString(android.R.string.ok),
                     (dialog, which) -> {
