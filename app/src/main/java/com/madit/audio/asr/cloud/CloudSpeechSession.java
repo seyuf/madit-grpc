@@ -29,11 +29,11 @@ import com.madit.audio.asr.SpeechSession;
 import com.madit.audio.asr.SpeechSessionListener;
 import com.google.cloud.speech.v1p1beta1.RecognitionConfig;
 import com.google.cloud.speech.v1p1beta1.SpeechContext;
-import com.google.cloud.speech.v1p1beta1.SpeechGrpc;
 import com.google.cloud.speech.v1p1beta1.StreamingRecognitionConfig;
 import com.google.cloud.speech.v1p1beta1.StreamingRecognizeRequest;
 import com.google.common.flogger.FluentLogger;
 import com.google.protobuf.ByteString;
+import com.madit.audio.service.CustomSpeechGrpc;
 
 import io.grpc.ManagedChannel;
 import io.grpc.stub.StreamObserver;
@@ -46,7 +46,7 @@ import org.joda.time.Duration;
  */
 public class CloudSpeechSession extends SpeechSession {
   private static final FluentLogger logger = FluentLogger.forEnclosingClass();
-  private SpeechGrpc.SpeechStub speechClient;
+  private CustomSpeechGrpc.SpeechStub speechClient;
 
   // Since the speech session times out after 5 minutes, we should try to avoid sessions reaching
   // approximately that length. If speech begins 4 mins and 30 seconds into the transcription, it
@@ -73,6 +73,8 @@ public class CloudSpeechSession extends SpeechSession {
   private StreamingAudioEncoder encoder;
   private boolean encoderIsRequested;
   private boolean encoderIsSupported;
+  //madit
+  private StreamingRecognitionConfig defaultStreamingConfig;
 
   /*
    * @param speechSessionListener Listener for recognition responses.
@@ -194,7 +196,7 @@ public class CloudSpeechSession extends SpeechSession {
   }
 
   private void initServer(SpeechRecognitionModelOptions modelOptions) {
-    this.speechClient = SpeechGrpc.newStub(channel);
+    this.speechClient = CustomSpeechGrpc.newStub(channel);
     requestObserver = speechClient.streamingRecognize(responseObserver);
 
     // Build and send a StreamingRecognizeRequest containing the parameters for
@@ -247,6 +249,11 @@ public class CloudSpeechSession extends SpeechSession {
         break;
     }
 
+
+    //madit
+    configBuilder.setModel("general");
+    configBuilder.setLanguageCode("fr-FR");
+
     RecognitionConfig config = configBuilder.build();
     StreamingRecognitionConfig streamingConfig = strbuilder.setConfig(config).build();
 
@@ -254,6 +261,7 @@ public class CloudSpeechSession extends SpeechSession {
     StreamingRecognizeRequest initial =
         StreamingRecognizeRequest.newBuilder().setStreamingConfig(streamingConfig).build();
 
+    this.defaultStreamingConfig = streamingConfig;
     requestObserver.onNext(initial);
   }
 
@@ -261,6 +269,7 @@ public class CloudSpeechSession extends SpeechSession {
     StreamingRecognizeRequest request =
         StreamingRecognizeRequest.newBuilder()
             .setAudioContent(ByteString.copyFrom(buffer, offset, count))
+                .setStreamingConfig(defaultStreamingConfig)
             .build();
     requestObserver.onNext(request);
   }

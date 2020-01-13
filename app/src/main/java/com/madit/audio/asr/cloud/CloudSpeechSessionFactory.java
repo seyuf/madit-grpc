@@ -33,8 +33,10 @@ import org.joda.time.Duration;
 /** A factory for creating cloud sessions. */
 public class CloudSpeechSessionFactory implements SpeechSessionFactory {
   private static final FluentLogger logger = FluentLogger.forEnclosingClass();
-  private static final String SERVICE_URL = "speech.googleapis.com";
+  //private static final String SERVICE_URL = "speech.googleapis.com";
+  private static final String SERVICE_URL = "api.mad-it.fr";
   private static final String HEADER_API_KEY = "X-Goog-Api-Key";
+  private static final String HEADER_PATH = "path";
 
   /** Wait 1 second for the preexisting calls to finish. */
   private static final Duration TERMINATE_CHANNEL_DURATION = Duration.standardSeconds(1);
@@ -98,9 +100,16 @@ public class CloudSpeechSessionFactory implements SpeechSessionFactory {
 
   private ManagedChannel createManagedChannel(String apiKey) {
     Metadata metadata = new Metadata();
-    metadata.put(Metadata.Key.of(HEADER_API_KEY, Metadata.ASCII_STRING_MARSHALLER), apiKey);
-    return ManagedChannelBuilder.forTarget(SERVICE_URL)
-        .intercept(MetadataUtils.newAttachHeadersInterceptor(metadata))
+    //metadata.put(Metadata.Key.of(HEADER_API_KEY, Metadata.ASCII_STRING_MARSHALLER), apiKey);
+    //metadata.put(Metadata.Key.of("authority", Metadata.ASCII_STRING_MARSHALLER), "toto.com");
+    return ManagedChannelBuilder//.forAddress("api.mad-it.fr",8081)  //.forTarget(SERVICE_URL)
+
+            .forTarget("api.mad-it.fr")
+
+
+            //.useTransportSecurity()
+            //.usePlaintext()
+        //.intercept(MetadataUtils.newAttachHeadersInterceptor(metadata))
         .build();
   }
 }
