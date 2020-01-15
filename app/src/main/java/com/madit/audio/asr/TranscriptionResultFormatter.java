@@ -41,7 +41,6 @@ import org.joda.time.Duration;
 
 /**
  * Creates a colored transcript in the format of {@link SpannedString} from {@link
- * TranscriptionResult} according to the configuration of {@link Options}.
  *
  * <p>This class is not thread-safe. If you intend to use this from multiple threads, consider
  * SafeTranscriptionResultFormatter.

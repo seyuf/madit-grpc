@@ -15,15 +15,18 @@
  */
 package com.madit.audio.asr.cloud;
 
+import android.util.Log;
+
 import com.madit.audio.asr.CloudSpeechStreamObserverParams;
 import com.madit.audio.asr.SpeechSessionListener;
 import com.madit.audio.asr.TimeUtil;
 import com.madit.audio.asr.TranscriptionResult;
-import com.google.cloud.speech.v1p1beta1.SpeechRecognitionAlternative;
-import com.google.cloud.speech.v1p1beta1.StreamingRecognitionResult;
-import com.google.cloud.speech.v1p1beta1.StreamingRecognizeResponse;
-import com.google.cloud.speech.v1p1beta1.StreamingRecognizeResponse.SpeechEventType;
-import com.google.cloud.speech.v1p1beta1.WordInfo;
+import com.madit.cloud.speech.v1p1beta1.SpeechRecognitionAlternative;
+import com.madit.cloud.speech.v1p1beta1.SpeechRecognitionResult;
+import com.madit.cloud.speech.v1p1beta1.StreamingRecognitionResult;
+import com.madit.cloud.speech.v1p1beta1.StreamingRecognizeResponse;
+import com.madit.cloud.speech.v1p1beta1.StreamingRecognizeResponse.SpeechEventType;
+import com.madit.cloud.speech.v1p1beta1.Word;
 import com.google.common.base.Optional;
 import com.google.common.flogger.FluentLogger;
 
@@ -95,6 +98,8 @@ public class CloudSpeechStreamObserver implements StreamObserver<StreamingRecogn
   /** Convert the results the speech recognizer gives us into an understandable transcript. */
   @Override
   public void onNext(StreamingRecognizeResponse response) {
+    String test = response.getResultsCount() != 0? response.getResults(0).getAlternatives(0).getTranscript(): "Failed";
+    Log.d("MaditRes","Res count: "+ test);
     if (response == null) {
       return;
     }
@@ -112,20 +117,16 @@ public class CloudSpeechStreamObserver implements StreamObserver<StreamingRecogn
     TranscriptionResult.Builder resultBuilder = TranscriptionResult.newBuilder();
     // Results are for non-overlapping sections of time, each result may have several possible
     // transcripts, called "alternatives".
-    for (StreamingRecognitionResult result : response.getResultsList()) {
+    for (SpeechRecognitionResult result : response.getResultsList()) {
       // We use a threshold of 0.5 for stability. In practice, only 0.9 and 0.01 seem to ever come
       // up, so this hardly seems like it is worth tuning.
       final float stableConfidenceThreshold = 0.5f;
-      if (params.getRejectUnstableHypotheses()
-          && !result.getIsFinal()
-          && result.getStability() < stableConfidenceThreshold) {
-        continue;
-      }
+
       SpeechRecognitionAlternative bestAlternative = result.getAlternativesList().get(0);
       highestConfidence = bestAlternative.getConfidence();
 
       transcriptString.append(bestAlternative.getTranscript());
-      for (WordInfo wordInfo : bestAlternative.getWordsList()) {
+      for (Word wordInfo : bestAlternative.getWordsList()) {
         TranscriptionResult.Word.Builder word =
             TranscriptionResult.Word.newBuilder()
                 .setText(wordInfo.getWord())
@@ -137,10 +138,8 @@ public class CloudSpeechStreamObserver implements StreamObserver<StreamingRecogn
         resultBuilder.addWordLevelDetail(word);
       }
       languageCode = result.getLanguageCode();
-      if (result.getIsFinal()) {
-        endedWithFinalResult = true;
-        break;
-      }
+      endedWithFinalResult = true;
+      break;
     }
 
     // If the transcript does not have a word list, generate the list of words and their

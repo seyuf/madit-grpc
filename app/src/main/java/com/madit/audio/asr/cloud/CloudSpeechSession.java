@@ -22,15 +22,18 @@
 
 package com.madit.audio.asr.cloud;
 
+import android.util.Log;
+
 import com.madit.audio.StreamingAudioEncoder;
 import com.madit.audio.asr.CloudSpeechSessionParams;
 import com.madit.audio.asr.SpeechRecognitionModelOptions;
 import com.madit.audio.asr.SpeechSession;
 import com.madit.audio.asr.SpeechSessionListener;
-import com.google.cloud.speech.v1p1beta1.RecognitionConfig;
-import com.google.cloud.speech.v1p1beta1.SpeechContext;
-import com.google.cloud.speech.v1p1beta1.StreamingRecognitionConfig;
-import com.google.cloud.speech.v1p1beta1.StreamingRecognizeRequest;
+import com.madit.cloud.speech.v1p1beta1.RecognitionAudio;
+import com.madit.cloud.speech.v1p1beta1.RecognitionConfig;
+import com.madit.cloud.speech.v1p1beta1.SpeechContext;
+import com.madit.cloud.speech.v1p1beta1.StreamingRecognitionConfig;
+import com.madit.cloud.speech.v1p1beta1.StreamingRecognizeRequest;
 import com.google.common.flogger.FluentLogger;
 import com.google.protobuf.ByteString;
 import com.madit.audio.service.CustomSpeechGrpc;
@@ -38,6 +41,8 @@ import com.madit.audio.service.CustomSpeechGrpc;
 import io.grpc.ManagedChannel;
 import io.grpc.stub.StreamObserver;
 import java.io.IOException;
+import java.util.Random;
+
 import org.joda.time.Duration;
 
 /**
@@ -73,8 +78,8 @@ public class CloudSpeechSession extends SpeechSession {
   private StreamingAudioEncoder encoder;
   private boolean encoderIsRequested;
   private boolean encoderIsSupported;
+  private boolean isFirst = false;
   //madit
-  private StreamingRecognitionConfig defaultStreamingConfig;
 
   /*
    * @param speechSessionListener Listener for recognition responses.
@@ -203,6 +208,7 @@ public class CloudSpeechSession extends SpeechSession {
     // processing the audio.
     SpeechContext speechContext = SpeechContext.getDefaultInstance();
 
+    //com.madit.cloud.speech.v1p1beta1.RecognitionConfig.newBuilder().setRaw()
     RecognitionConfig.AudioEncoding encodingType = RecognitionConfig.AudioEncoding.LINEAR16;
     if (usingEncoder()) {
       switch (encoder.getCodecType()) {
@@ -223,12 +229,8 @@ public class CloudSpeechSession extends SpeechSession {
             .setEncoding(encodingType)
             .setSampleRateHertz(sampleRateHz)
             .setAudioChannelCount(1)
-            .setEnableAutomaticPunctuation(true)
-            .setEnableWordConfidence(true)
-            .setEnableWordTimeOffsets(true)
             .addSpeechContexts(speechContext)
             .setLanguageCode(modelOptions.getLocale())
-            .setProfanityFilter(params.getFilterProfanity())
             .addSpeechContexts(
                 SpeechContext.newBuilder()
                     .addAllPhrases(modelOptions.getBiasWordsList()));
@@ -251,27 +253,91 @@ public class CloudSpeechSession extends SpeechSession {
 
 
     //madit
-    configBuilder.setModel("general");
+    configBuilder.setModel("default");
     configBuilder.setLanguageCode("fr-FR");
 
-    RecognitionConfig config = configBuilder.build();
-    StreamingRecognitionConfig streamingConfig = strbuilder.setConfig(config).build();
 
+
+    byte[] randomWav = bang();
+
+    int size = randomWav.length;
+    short[] shortArray = new short[size+1];
+
+    for (int index = 0; index < size/2; index++)
+      shortArray[index] = (short) randomWav[index];
+
+    Wave testWav = new Wave(16000, (short) 1, shortArray,0, 0);
+    
+    RecognitionAudio recognitionAudio =
+            RecognitionAudio.newBuilder()
+                    .setContent(ByteString.copyFrom(testWav.output)).build();
+
+    RecognitionConfig config = configBuilder
+            .setDataBytes(size)
+            .setMaxAlternatives(2)
+            .setRaw(true)
+            .build();
+
+    //StreamingRecognitionConfig streamingConfig = strbuilder.setConfig(config).build();
     // First request sends the configuration.
     StreamingRecognizeRequest initial =
-        StreamingRecognizeRequest.newBuilder().setStreamingConfig(streamingConfig).build();
+        StreamingRecognizeRequest.newBuilder()
+                .setAudio(recognitionAudio)
+                .setConfig(config)
+                .setUuid( String.valueOf(sessionID()))
+                .build();
 
-    this.defaultStreamingConfig = streamingConfig;
+    Log.d("MADINITSERVER", "Content bytes: "+ initial.getAudio().getContent());
     requestObserver.onNext(initial);
   }
 
+
+  public static byte[] bang() {
+    byte[] buf = new byte[8050];
+    Random r = new Random();
+    boolean silence = true;
+    for (int i = 0; i < 8000; i++) {
+      while (r.nextInt() % 10 != 0) {
+        buf[i] =
+                silence ? 0
+                        : (byte) Math.abs(r.nextInt()
+                        % (int) (1. + 63. * (1. + Math.cos(((double) i)
+                        * Math.PI / 8000.))));
+        i++;
+      }
+      silence = !silence;
+    }
+    return buf;
+  }
+
+
+
+
   private void streamToServer(byte[] buffer, int offset, int count) {
+
+   // if(isFirst) return;
+    RecognitionAudio recognitionAudio =
+            RecognitionAudio.newBuilder()
+                    .setContent(ByteString.copyFrom(buffer, offset, count)).build();
+
+    RecognitionConfig config = RecognitionConfig.newBuilder()
+            .setModel("default")
+            .setLanguageCode("fr-FR")
+            .setDataBytes(count)
+            .setMaxAlternatives(2)
+            .setRaw(true)
+            .build();
+
     StreamingRecognizeRequest request =
         StreamingRecognizeRequest.newBuilder()
-            .setAudioContent(ByteString.copyFrom(buffer, offset, count))
-                .setStreamingConfig(defaultStreamingConfig)
+            //.setAudioContent(ByteString.copyFrom(buffer, offset, count))
+                .setAudio(recognitionAudio)
+                .setConfig(config)
+                .setUuid( String.valueOf(sessionID()))
             .build();
+    Log.d("MADTOSERVER", "Content bytes: "+request.getAudio().getContent());
     requestObserver.onNext(request);
+    isFirst = true;
   }
 
   private void closeServer() {
@@ -281,4 +347,88 @@ public class CloudSpeechSession extends SpeechSession {
       requestObserver = null;
     }
   }
+
+
+
+  private class Wave
+  {
+    private final int LONGINT = 4;
+    private final int SMALLINT = 2;
+    private final int INTEGER = 4;
+    private final int ID_STRING_SIZE = 4;
+    private final int WAV_RIFF_SIZE = LONGINT+ID_STRING_SIZE;
+    private final int WAV_FMT_SIZE = (4*SMALLINT)+(INTEGER*2)+LONGINT+ID_STRING_SIZE;
+    private final int WAV_DATA_SIZE = ID_STRING_SIZE+LONGINT;
+    private final int WAV_HDR_SIZE = WAV_RIFF_SIZE+ID_STRING_SIZE+WAV_FMT_SIZE+WAV_DATA_SIZE;
+    private final short PCM = 1;
+    private final int SAMPLE_SIZE = 2;
+    int cursor, nSamples;
+    public byte[] output;
+
+    public Wave(int sampleRate, short nChannels, short[] data, int start, int end)
+    {
+      nSamples=end-start+1;
+      cursor=0;
+      output=new byte[nSamples*SMALLINT+WAV_HDR_SIZE];
+      buildHeader(sampleRate,nChannels);
+      writeData(data,start,end);
+    }
+    // ------------------------------------------------------------
+    private void buildHeader(int sampleRate, short nChannels)
+    {
+      write("RIFF");
+      write(output.length);
+      write("WAVE");
+      writeFormat(sampleRate, nChannels);
+    }
+    // ------------------------------------------------------------
+    public void writeFormat(int sampleRate, short nChannels)
+    {
+      write("fmt ");
+      write(WAV_FMT_SIZE-WAV_DATA_SIZE);
+      write(PCM);
+      write(nChannels);
+      write(sampleRate);
+      write(nChannels * sampleRate * SAMPLE_SIZE);
+      write((short)(nChannels * SAMPLE_SIZE));
+      write((short)16);
+    }
+    // ------------------------------------------------------------
+    public void writeData(short[] data, int start, int end)
+    {
+      write("data");
+      write(nSamples*SMALLINT);
+      for(int i=start; i<=end; write(data[i++]));
+    }
+    // ------------------------------------------------------------
+    private void write(byte b)
+    {
+      output[cursor++]=b;
+    }
+    // ------------------------------------------------------------
+    private void write(String id)
+    {
+      if(id.length()!=ID_STRING_SIZE) Log.d("MADITWAV","String "+id+" must have four characters.");
+      else {
+        for(int i=0; i<ID_STRING_SIZE; ++i) write((byte)id.charAt(i));
+      }
+    }
+    // ------------------------------------------------------------
+    private void write(int i)
+    {
+      write((byte) (i&0xFF)); i>>=8;
+      write((byte) (i&0xFF)); i>>=8;
+      write((byte) (i&0xFF)); i>>=8;
+      write((byte) (i&0xFF));
+    }
+    // ------------------------------------------------------------
+    private void write(short i)
+    {
+      write((byte) (i&0xFF)); i>>=8;
+      write((byte) (i&0xFF));
+    }
+    // ------------------------------------------------------------
+
+  }
+
 }

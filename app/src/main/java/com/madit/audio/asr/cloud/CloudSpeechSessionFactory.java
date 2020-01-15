@@ -102,12 +102,12 @@ public class CloudSpeechSessionFactory implements SpeechSessionFactory {
     Metadata metadata = new Metadata();
     //metadata.put(Metadata.Key.of(HEADER_API_KEY, Metadata.ASCII_STRING_MARSHALLER), apiKey);
     //metadata.put(Metadata.Key.of("authority", Metadata.ASCII_STRING_MARSHALLER), "toto.com");
-    return ManagedChannelBuilder//.forAddress("api.mad-it.fr",8081)  //.forTarget(SERVICE_URL)
+    return ManagedChannelBuilder//.forAddress("192.168.1.16",5016)  //.forTarget(SERVICE_URL)
 
             .forTarget("api.mad-it.fr")
 
 
-            //.useTransportSecurity()
+            .useTransportSecurity()
             //.usePlaintext()
         //.intercept(MetadataUtils.newAttachHeadersInterceptor(metadata))
         .build();

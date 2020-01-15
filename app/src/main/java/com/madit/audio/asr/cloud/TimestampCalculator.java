@@ -17,7 +17,7 @@ package com.madit.audio.asr.cloud;
 
 import com.madit.audio.asr.TimeUtil;
 import com.madit.audio.asr.TranscriptionResult;
-import com.google.cloud.speech.v1p1beta1.WordInfo;
+import com.madit.cloud.speech.v1p1beta1.Word;
 import com.google.common.base.Splitter;
 import com.google.protobuf.Timestamp;
 
@@ -52,17 +52,19 @@ public class TimestampCalculator {
     this.sessionStartTime = newSessionStartTime;
   }
 
-  public Timestamp getFinalizedStartTimestamp(WordInfo wordInfo) {
+  public Timestamp getFinalizedStartTimestamp(Word wordInfo) {
     Duration startOffset =
-        Duration.standardSeconds(wordInfo.getStartTime().getSeconds())
-            .plus(Duration.millis(wordInfo.getStartTime().getNanos() / NANOS_PER_MILLIS));
+        Duration.standardSeconds((long) wordInfo.getStartTime())
+            .plus(Duration.millis((long) ((int)wordInfo.getStartTime() - wordInfo.getStartTime()) / NANOS_PER_MILLIS));
     return TimeUtil.toTimestamp(sessionStartTime.plus(startOffset));
   }
 
-  public Timestamp getFinalizedEndTimestamp(WordInfo wordInfo) {
+  public Timestamp getFinalizedEndTimestamp(Word wordInfo) {
     Duration endOffset =
-        Duration.standardSeconds(wordInfo.getEndTime().getSeconds())
-            .plus(Duration.millis(wordInfo.getEndTime().getNanos() / NANOS_PER_MILLIS));
+ //       Duration.standardSeconds(wordInfo.getEndTime().getSeconds())
+   //         .plus(Duration.millis(wordInfo.getEndTime().getNanos() / NANOS_PER_MILLIS));
+    Duration.standardSeconds((long) wordInfo.getEndTime())
+            .plus(Duration.millis((long) ((int)wordInfo.getEndTime() - wordInfo.getEndTime()) / NANOS_PER_MILLIS));
     return TimeUtil.toTimestamp(sessionStartTime.plus(endOffset));
   }
 

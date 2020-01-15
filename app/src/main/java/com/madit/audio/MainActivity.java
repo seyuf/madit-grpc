@@ -62,6 +62,10 @@ public class MainActivity extends AppCompatActivity {
   private String openPadId;
 
 
+  private static MainActivity instance;
+
+
+
   /*****************END DRIVE***************************/
 
   private static final int PERMISSIONS_REQUEST_RECORD_AUDIO = 1;
@@ -194,9 +198,22 @@ public class MainActivity extends AppCompatActivity {
             recognizer.stop();
           };
 
+
+  /** Get singleton instance of activity **/
+  public static MainActivity getInstance() {
+    return instance;
+  }
+
+
+  /** Returns context of this activity **/
+  public static Context getContext(){
+    return instance.getApplicationContext();
+  }
+
   @Override
   protected void onCreate(Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
+    instance = this;
     setContentView(R.layout.activity_main);
     sharedpreferences = getPreferences(Context.MODE_PRIVATE);
     transcript = findViewById(R.id.transcript);
@@ -287,7 +304,7 @@ public class MainActivity extends AppCompatActivity {
                             CloudSpeechSessionParams.EncoderParams.newBuilder()
                                     .setEnableEncoder(true)
                                     .setAllowVbr(true)
-                                    .setCodec(CodecAndBitrate.OGG_OPUS_BITRATE_32KBPS))
+                                    .setCodec(CodecAndBitrate.UNDEFINED))
                     .build();
     networkChecker = new NetworkConnectionChecker(this);
     networkChecker.registerNetworkCallback();
