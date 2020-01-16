@@ -10,4 +10,8 @@
   <string name="limit_rate_message">La version actuelle de l\'application est limitée à une utilisation de 30min/mois de transcription gratuite. <a href="https://mobile.madit.fr">Plus d\'information</a>.</string>
   <string name="privacy_policy">Afin de transcrire les voix, les données sont temporairement envoyées vers nos serveurs chez Google Cloud Platform. Aucun fichier audio n\'est conservé, seules les transcriptions (format texte) sont conservés, dans l\'espace réservé et accessible qu\'à l\'utilisateur concerné. Ce dernier est responsable de l\'utilisation qui fait du lien fourni.
 Ce service étant totalement libre, Mad IT se décharge de toutes responsabilités quant à la disponibilité futur du service ainsi que tout dégâts directs ou indirects engendrés par l\'utilisation de cet outil. Aussi aucune, information d\'identification n\'est récupérée. Cette application ne contient aucune publicité ni information publicitaire. <a href="https://mobile.madit.fr">Site web</a></string>
+  <string name="privacy_policy_en">
+    In order to transcribe the voices, the data is temporarily sent to our servers at Google Cloud Platform. No audio file is kept, only the transcriptions (text format) are kept, in the space reserved and accessible to the user concerned. The latter is responsible for the use made of the link provided.
+As this service is completely free, Mad IT disclaims all responsibility for the future availability of the service as well as any direct or indirect damage caused by the use of this tool. Also no identification information is retrieved. This application does not contain any advertising or advertising information.
+  </string>
 </resources>
