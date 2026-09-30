@@ -1,5 +1,7 @@
 # The Live Transcribe Speech Engine
 
+Fork google speech to text with grpc support
+
 (This is not an official Google product!)
 
 [Live Transcribe](https://www.android.com/accessibility/live-transcribe/) is an
