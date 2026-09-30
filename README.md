@@ -1,6 +1,7 @@
 # The Live Transcribe Speech Engine
 
 Fork google speech to text with grpc support
+The text is saved to etherpad document. Same principle can be use to sync to a google doc via the API.
 
 (This is not an official Google product!)
 
